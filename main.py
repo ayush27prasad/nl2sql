@@ -1,5 +1,7 @@
 import os
 from fastapi import FastAPI
+from starlette.middleware.cors import CORSMiddleware
+
 from db import Database
 from llm import create_sql_query, create_md_response
 from models import UserQuery
@@ -14,7 +16,13 @@ db = Database(dsn=DATABASE_CONNECTION_STRING)
 # App with DB lifespan
 app = FastAPI(lifespan=db.lifespan)
 
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # or ["http://localhost:3000"] for specific frontend
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 @app.post("/api/v1/transactions/chat")
 async def get_transactions(payload: UserQuery) -> str:
     response = await resolve_user_query(payload.query)
