@@ -7,7 +7,6 @@ from models import Transaction, UserQuery
 from utils import is_valid_sql_query
 from dotenv import load_dotenv
 
-# TODO : Use environment variable or secret manager in production
 load_dotenv()
 
 DATABASE_CONNECTION_STRING = os.getenv("DB_URL")
