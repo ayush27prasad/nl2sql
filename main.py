@@ -1,9 +1,8 @@
 import os
-from typing import List
-from fastapi import FastAPI, Query
+from fastapi import FastAPI
 from db import Database
-from llm import create_sql_query
-from models import Transaction, UserQuery
+from llm import create_sql_query, create_md_response
+from models import UserQuery
 from utils import is_valid_sql_query
 from dotenv import load_dotenv
 
@@ -16,19 +15,28 @@ db = Database(dsn=DATABASE_CONNECTION_STRING)
 app = FastAPI(lifespan=db.lifespan)
 
 
-@app.post("/transactions", response_model=List[Transaction])
-async def get_transactions(payload: UserQuery):
-    response = await fetch_transactions_data(payload.query)
+@app.post("/api/v1/transactions/chat")
+async def get_transactions(payload: UserQuery) -> str:
+    response = await resolve_user_query(payload.query)
     return response
 
-async def fetch_transactions_data(user_query: str) -> List[Transaction]:
+async def resolve_user_query(user_query: str) -> str:
 
-    sql_query = create_sql_query(user_query)
+    # Create SQL query from user query using LLM
+    sql_llm_response = create_sql_query(user_query)
+    sql_query = sql_llm_response.response
+    sql_summary = sql_llm_response.response_summary
+    print("Generated SQL Query:", sql_query)
 
-    print("Generated SQL Query:", sql_query)  # Debugging line
-
+    # Validate the generated SQL query
     if not is_valid_sql_query(sql_query):
         raise ValueError("Generated SQL query is not valid or safe.")
 
+    # Fetch data from the database using the generated SQL query
     rows = await db.fetch_all(sql_query)
-    return [Transaction(**dict(row)) for row in rows]
+    query_results = [dict(row) for row in rows]
+
+    # Return formatted markdown response using LLM
+    return create_md_response(data=query_results, sql_query_used=sql_query, sql_query_summary=sql_summary, user_query=user_query)
+
+
